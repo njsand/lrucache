@@ -7,24 +7,28 @@ import java.util.Map;
 import java.util.HashMap;
 
 /**
- * A fixed size LRU (least recently used) cache.  When deciding to evict an 
+ * A generic, fixed size LRU (least recently used) cache.  When deciding to evict an 
  * item from the cache, the key that has least recently been written or read is evicted.
  * <p/>
- * The implementation consists of 2 data structures - a hash map that stores
+ * Internally, the implementation consists of 2 data structures - a hash map that stores
  * the mapping from key to value, and a list that orders keys by recency
  * of access (with the key most recently accessed on the head of the list.)
  * <p/>
- * This class is not thread safe.
+ * This class performs no synchronisation and is not thread safe.
  */
 public class LruCache<K, V>
 {
     private Map<K, Entry<K, V>> nameToValueMap = new HashMap<K, Entry<K, V>>();
 
-    // private final int capacity;
     private int currentSize;
 
-    private Entry<K, V> mruHead;
-    private Entry<K, V> mruTail;
+    // References to the head and tail of the LRU list.  We do not use
+    // java.util.LinkedList for this list - instead we manage the links
+    // ourselves.  The reason for this is we need to be able to grab potentially
+    // any element of the list and put it on the head of the list 
+    // (on a cache hit).  This is tricky to do with LinkedList...
+    private Entry<K, V> lruListHead;
+    private Entry<K, V> lruListTail;
 
     private Entry[] entries;
 
@@ -32,10 +36,10 @@ public class LruCache<K, V>
     
     public LruCache(int capacity)
     {
-        entries = new Entry[capacity]; // We have a dummy node on the front.
+        entries = new Entry[capacity];
 
-        mruHead = null;
-        mruTail = null;
+        lruListHead = null;
+        lruListTail = null;
 
         currentSize = 0;
 
@@ -120,9 +124,7 @@ public class LruCache<K, V>
         {
             // Cache miss!
             stats.incMisses();
-
-            // Retrieve the value from the backing data source.
-            // Integer food = store.getFood(name);
+            
             return null;
         }
         else
@@ -136,7 +138,7 @@ public class LruCache<K, V>
     }
 
     /**
-     * This puts the entry {@code e} at the head of the MRU list.
+     * This puts the entry {@code e} at the head of the LRU list.
      * 
      * @param e 
      */
@@ -148,7 +150,7 @@ public class LruCache<K, V>
         }
         else
         {
-            if (e == mruHead)
+            if (e == lruListHead)
             {
                 // It's already at the head, so do nothing.
             }
@@ -156,11 +158,11 @@ public class LruCache<K, V>
             {
                 // This could probably be simpler here.
                 
-                if (e == mruTail)
+                if (e == lruListTail)
                 {
                     // Set the new tail
                     entries[e.prev].next = -1;
-                    mruTail = entries[e.prev];
+                    lruListTail = entries[e.prev];
                 }
                 else
                 {
@@ -171,42 +173,38 @@ public class LruCache<K, V>
 
                 // Put it at the head of the list.
                 e.prev = -1;
-                e.next = mruHead.pos;
-                mruHead.prev = e.pos;
-                mruHead = e;
+                e.next = lruListHead.pos;
+                lruListHead.prev = e.pos;
+                lruListHead = e;
             }
         }
     }
 
-    // Returns the slot of the entry that was evicted (and is now free).
+    // Returns the entry that was evicted (and is now free).
     private Entry evict()
     {
-        System.out.println("evicting item: " + mruTail);
+        nameToValueMap.remove(lruListTail.key);
 
-        // Could implement dirty flag checking and only write if need be here, but just write for
-        // now.
-        // store.writeFood(mruTail.key, mruTail.value);
-
-        nameToValueMap.remove(mruTail.key);
-
-        return mruTail;
+        // Because the LRU list is sorted (by decreasing recency of access)
+        // we know the tail is the LRU item - thus we simply return that.
+        return lruListTail;
     }
 
     // Presumes there is space.  This is only used to fill the cache initially.
-    private void addNewEntry(K key, V food)
+    private void addNewEntry(K key, V value)
     {
         Entry newNode = null;
 
         if (currentSize == 0)
         {
-            newNode = entries[0] = new Entry(key, food, currentSize, -1, -1);
-            mruHead = mruTail = entries[0];
+            newNode = entries[0] = new Entry(key, value, currentSize, -1, -1);
+            lruListHead = lruListTail = entries[0];
         }
         else
         {
             // Add it to end then adjust.
-            newNode = entries[currentSize] = new Entry(key, food, currentSize, -1, mruTail.pos);
-            mruTail = entries[currentSize];
+            newNode = entries[currentSize] = new Entry(key, value, currentSize, -1, lruListTail.pos);
+            lruListTail = entries[currentSize];
         }
 
         ++currentSize;
@@ -215,39 +213,45 @@ public class LruCache<K, V>
         nameToValueMap.put(key, newNode);
     }
 
-    private void setCacheEntry(Entry slot, K name, V food)
+    private void setCacheEntry(Entry slot, K name, V value)
     {
         slot.key = name;
-        slot.value = food;
+        slot.value = value;
 
         nameToValueMap.put(name, slot);
     }
     
     /**
-     * Return the number of entries in the cache.  This will be an integer
-     * in the range [0, 
-     * @return 
+     * @return the number of entries in the cache.  This will be an integer
+     * in the range [0, capacity], where the capacity is fixed and was
+     * determined upon construction of this cache.
      */
     public int getCurrentSize()
     {
         return currentSize;
     }
-    
+
+    /**
+     * @return A new instance of {@code Stats} that contains cache statistics
+     * such as hit/miss information.
+     */
     public Stats getStats()
     {
-        // Return a copy of our statistics object.
         return new Stats(stats);
     }
     
-    public void printStats()
+    /**
+     * For debug.  Probably should be removed at some point.
+     */
+    void dumpCache()
     {
         System.out.println("cache stats:");
 
         System.out.println("capacity: " + entries.length);
         System.out.println("current size: " + currentSize);
 
-        System.out.println("MRU list:");
-        int nextSlot = mruHead.pos;
+        System.out.println("LRU list:");
+        int nextSlot = lruListHead.pos;
 
         while (nextSlot != -1)
         {
@@ -259,10 +263,10 @@ public class LruCache<K, V>
 
     private static class Entry<K, V>
     {
-        Entry(K name, V food, int pos, int next, int prev)
+        Entry(K name, V value, int pos, int next, int prev)
         {
             this.key = name;
-            this.value = food;
+            this.value = value;
             this.pos = pos;
             this.next = next;
             this.prev = prev;
@@ -281,13 +285,13 @@ public class LruCache<K, V>
         @Override
         public String toString()
         {
-            return "name: " + key + " food: " + value + " pos: " + pos + " next: " + next + " prev: " + prev;
+            return "name: " + key + " value: " + value + " pos: " + pos + " next: " + next + " prev: " + prev;
         }
     }
 
     /**
      * Stores basic cache statistics such as number of hits and misses, etc.
-     * 
+     * <p/>
      * This could be split out into its own file, but let's not do that for now.
      */
     public static class Stats

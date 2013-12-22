@@ -3,47 +3,63 @@
  */
 package com.nicksandow.lrucache.example;
 
+import java.util.Arrays;
+
 /**
- *
+ * 
  */
-public class Example 
-{
-    private static int CACHE_CAPACITY = 10000;
+class Example 
+{ 
+    private static final long TARGET_NUMBER_BASE = 1000000000L;
+    private static final long TARGET_NUMBER_RANGE = 20L;
     
     public static void main(String[] args) 
     {
-        if (args.length != 1)
+        int numRequests = 100;
+        int cacheCapacity = 500;
+        
+        switch (args.length)
         {
-            System.err.println("Example: Usage: java Example <num requests> <cache capacity>");
+            case 2:
+                cacheCapacity = Integer.parseInt(args[1]);
+                // fall through
+                
+            case 1:
+                numRequests = Integer.parseInt(args[0]);
+                // fall through
+                
+            case 0:
+                break;
+                
+            default:    
+                System.err.println("Example: Usage: java Example <num requests> <cache capacity>");
         }
         
-        int numRequests = Integer.parseInt(args[0]);
-        int cacheCapacity = Integer.parseInt(args[1]);
+        long time = factorise(new SimpleFactoriser(), numRequests);
         
+        System.out.println("Time to perform " + numRequests + 
+                " with SimpleFactoriser is: " + time + "ms.");
+        
+        time = factorise(new CachedFactoriser(cacheCapacity), numRequests);
+        
+        System.out.println("Time to perform " + numRequests + 
+                " with CachedFactoriser is: " + time + "ms.");
+    }
+    
+    private static long factorise(PrimeFactoriser factoriser, int num)
+    {
         long start = System.currentTimeMillis();
         
-        simpleFactorise(numRequests);
+        for (int i = 0; i < num; i++)
+        {
+            Long[] target = factoriser.factorise(TARGET_NUMBER_BASE + 
+                    (long)(Math.random() * TARGET_NUMBER_RANGE));
+            
+            System.out.println(Arrays.toString(target));
+        }
         
         long end = System.currentTimeMillis();
         
-        System.out.println("Time to perform " + numRequests + 
-                " with SimpleFactoriser is: " + (end - start) + "ms.");
-        
-        start = System.currentTimeMillis();
-        cachedFactorise(numRequests);
-        end = System.currentTimeMillis();
-
-        System.out.println("Time to perform " + numRequests + 
-                " with CachedFactoriser is: " + (end - start) + "ms.");
+        return end - start;
     }
-    
-    private static void simpleFactorise(int numRequests)
-    {
-        
-    }
-    
-    private static void cachedFactorise(int numRequests)
-    {
-        
-    }    
 }

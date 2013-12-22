@@ -6,7 +6,7 @@ package com.nicksandow.lrucache.example;
 /**
  * Defines an interface for finding the prime factorisation of a Long value.
  */
-public interface PrimeFactoriser
+interface PrimeFactoriser
 {
     /**
      * Return the prime factors of {@param num}.

@@ -6,9 +6,8 @@ package com.nicksandow.lrucache.example;
 import com.nicksandow.lrucache.LruCache;
 
 /**
- * This demonstrates usage of LruCache.java.
- * <p/>
- * This example: prime factorisation.
+ * An implementation of {@code PrimeFactoriser} with an LRU cache on the "front" - this
+ * can avoid recalculation and thus speed things up.
  */
 class CachedFactoriser implements PrimeFactoriser
 {
