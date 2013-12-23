@@ -20,6 +20,10 @@ public class LruCache<K, V>
 {
     private Map<K, Entry<K, V>> nameToValueMap = new HashMap<K, Entry<K, V>>();
 
+     // The cache will never store more entries than this.
+    private final int capacity;
+    
+    // The current size of the cache.
     private int currentSize;
 
     // References to the head and tail of the LRU list.  We do not use
@@ -30,19 +34,14 @@ public class LruCache<K, V>
     private Entry<K, V> lruListHead;
     private Entry<K, V> lruListTail;
 
-    private Entry[] entries;
-
-    private Stats stats;
+    private final Stats stats;
     
     public LruCache(int capacity)
     {
-        entries = new Entry[capacity];
-
+        this.capacity = capacity;
+        currentSize = 0;
         lruListHead = null;
         lruListTail = null;
-
-        currentSize = 0;
-
         stats = new Stats();
     }
     
@@ -72,7 +71,7 @@ public class LruCache<K, V>
         }
         else  // Not in cache.
         {
-            if (currentSize < entries.length)
+            if (currentSize < capacity)
             {
                 // There is still capacity in the cache, so just add it in.
                 // No need to evict anything.
@@ -138,11 +137,11 @@ public class LruCache<K, V>
     }
 
     /**
-     * This puts the entry {@code e} at the head of the LRU list.
+     * This puts the parameter {@code entry} at the head of the LRU list.
      * 
-     * @param e 
+     * @param entry The node to move.
      */
-    private void updateLru(Entry e)
+    private void updateLru(Entry entry)
     {
         if (currentSize == 1)
         {
@@ -150,37 +149,36 @@ public class LruCache<K, V>
         }
         else
         {
-            if (e == lruListHead)
+            if (entry == lruListHead)
             {
                 // It's already at the head, so do nothing.
             }
             else
             {
                 // This could probably be simpler here.
-                
-                if (e == lruListTail)
+                if (entry == lruListTail)
                 {
                     // Set the new tail
-                    entries[e.prev].next = -1;
-                    lruListTail = entries[e.prev];
+                    entry.prev.next = null;
+                    lruListTail = entry.prev;
                 }
                 else
                 {
                     // It's somewhere in the middle.  Remove it.
-                    entries[e.prev].next = e.next;
-                    entries[e.next].prev = e.prev;
+                    entry.prev.next = entry.next;
+                    entry.next.prev = entry.prev;
                 }
 
                 // Put it at the head of the list.
-                e.prev = -1;
-                e.next = lruListHead.pos;
-                lruListHead.prev = e.pos;
-                lruListHead = e;
+                entry.prev = null;
+                entry.next = lruListHead.next;
+                lruListHead.prev = entry;
+                lruListHead = entry;
             }
         }
     }
 
-    // Returns the entry that was evicted (and is now free).
+    // Returns the entry that was evicted (and is now free for re-use).
     private Entry evict()
     {
         nameToValueMap.remove(lruListTail.key);
@@ -190,41 +188,42 @@ public class LruCache<K, V>
         return lruListTail;
     }
 
-    // Presumes there is space.  This is only used to fill the cache initially.
+    // Add a new entry to the cache.
+    //
+    // Pre-condition: There must be space for the entry.  This method does
+    // no checking for free space.
     private void addNewEntry(K key, V value)
     {
-        Entry newNode = null;
-
-        if (currentSize == 0)
+        Entry newNode = new Entry(key, value, lruListHead, null);
+        
+        if (currentSize != 0)
         {
-            newNode = entries[0] = new Entry(key, value, currentSize, -1, -1);
-            lruListHead = lruListTail = entries[0];
+            lruListHead.prev = newNode;
         }
         else
         {
-            // Add it to end then adjust.
-            newNode = entries[currentSize] = new Entry(key, value, currentSize, -1, lruListTail.pos);
-            lruListTail = entries[currentSize];
+            lruListTail = newNode;
         }
 
+        lruListHead = newNode;
+        
         ++currentSize;
-        updateLru(newNode);
 
         nameToValueMap.put(key, newNode);
     }
 
-    private void setCacheEntry(Entry slot, K name, V value)
+    private void setCacheEntry(Entry entry, K name, V value)
     {
-        slot.key = name;
-        slot.value = value;
+        entry.key = name;
+        entry.value = value;
 
-        nameToValueMap.put(name, slot);
+        nameToValueMap.put(name, entry);
     }
     
     /**
      * @return the number of entries in the cache.  This will be an integer
-     * in the range [0, capacity], where the capacity is fixed and was
-     * determined upon construction of this cache.
+     * in the range [0, capacity], where the capacity is fixed at the 
+     * construction of this cache.
      */
     public int getCurrentSize()
     {
@@ -247,27 +246,33 @@ public class LruCache<K, V>
     {
         System.out.println("cache stats:");
 
-        System.out.println("capacity: " + entries.length);
+        System.out.println("capacity: " + capacity);
         System.out.println("current size: " + currentSize);
 
         System.out.println("LRU list:");
-        int nextSlot = lruListHead.pos;
+        Entry nextEntry = lruListHead;
 
-        while (nextSlot != -1)
+        while (nextEntry != null)
         {
-            System.out.print("(" + entries[nextSlot].key + ", " + entries[nextSlot].value + ") -> ");
+            System.out.print("(" + nextEntry.key + ", " + nextEntry.value + ") -> ");
 
-            nextSlot = entries[nextSlot].next;
+            nextEntry = nextEntry.next;
         }
     }    
 
+    /**
+     * An entry in the cache.  Instances of these are chained in a linked list
+     * that is the LRU list.
+     * 
+     * @param <K> The type of the keys in the cache.
+     * @param <V> The type of the values.
+     */
     private static class Entry<K, V>
     {
-        Entry(K name, V value, int pos, int next, int prev)
+        Entry(K name, V value, Entry next, Entry prev)
         {
             this.key = name;
             this.value = value;
-            this.pos = pos;
             this.next = next;
             this.prev = prev;
         }
@@ -275,17 +280,15 @@ public class LruCache<K, V>
         K key;
         V value;
 
-        final int pos;
-        // The "pointer" to the next node in the LRU list.  We are forced to do this because Java's
-        // linked list type strangely doesn't expose the link node type...
-        int next;
-        // The previous "pointer"
-        int prev;
+        // The next node in the LRU list.
+        Entry next;
+        // The previous node in the LRU list.
+        Entry prev;
 
         @Override
         public String toString()
         {
-            return "name: " + key + " value: " + value + " pos: " + pos + " next: " + next + " prev: " + prev;
+            return "name: " + key + " value: " + value + " next: " + next + " prev: " + prev;
         }
     }
 

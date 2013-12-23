@@ -7,7 +7,7 @@ import junit.framework.TestCase;
 import static junit.framework.Assert.*;
 
 /**
- * Tests for LruCache.
+ * Unit tests for LruCache.
  * 
  * For this unit test, we are caching the result of a simple function: 
  * fn(x) = x + 1000.
