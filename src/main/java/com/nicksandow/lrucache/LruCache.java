@@ -172,38 +172,31 @@ public class LruCache<K, V>
      */
     private void updateLru(Entry entry)
     {
-        if (currentSize == 1)
+        if (entry == lruListHead)
         {
-            // A list of size 1; do nothing
+            // It's already at the head, so do nothing.  This will also always
+            // be the case when the current size is 1.
         }
         else
         {
-            if (entry == lruListHead)
+            if (entry == lruListTail)
             {
-                // It's already at the head, so do nothing.
+                // Set the new tail
+                entry.prev.next = null;
+                lruListTail = entry.prev;
             }
             else
             {
-                // This could probably be simpler here.
-                if (entry == lruListTail)
-                {
-                    // Set the new tail
-                    entry.prev.next = null;
-                    lruListTail = entry.prev;
-                }
-                else
-                {
-                    // It's somewhere in the middle.  Remove it.
-                    entry.prev.next = entry.next;
-                    entry.next.prev = entry.prev;
-                }
-
-                // Put it at the head of the list.
-                entry.prev = null;
-                entry.next = lruListHead.next;
-                lruListHead.prev = entry;
-                lruListHead = entry;
+                // It's somewhere in the middle.  Remove it.
+                entry.prev.next = entry.next;
+                entry.next.prev = entry.prev;
             }
+
+            // Put it at the head of the list.
+            entry.prev = null;
+            entry.next = lruListHead;
+            lruListHead.prev = entry;
+            lruListHead = entry;
         }
     }
 

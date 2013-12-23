@@ -30,8 +30,7 @@ class SimpleFactoriser implements PrimeFactoriser
         
         try 
         {
-            // Because this is an example, let's cheat and also add in an artificial
-            // delay...
+            // Add in a bit of a delay to simulate a lengthy task.
             Thread.sleep(50);
         } 
         catch (InterruptedException ex) 

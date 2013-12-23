@@ -6,7 +6,10 @@ package com.nicksandow.lrucache.example;
 import java.util.Arrays;
 
 /**
- * 
+ * This is a simple example app.  It calculates prime factorisations of a
+ * bunch of largish numbers (randomly generated in a certain range) with
+ * and without using a cache to avoid re-calculating previously computed
+ * results.
  */
 class Example 
 { 
@@ -38,12 +41,12 @@ class Example
         long time = factorise(new SimpleFactoriser(), numRequests);
         
         System.out.println("Time to perform " + numRequests + 
-                " with SimpleFactoriser is: " + time + "ms.");
+                " requests with SimpleFactoriser is: " + time + "ms.");
         
         time = factorise(new CachedFactoriser(cacheCapacity), numRequests);
         
         System.out.println("Time to perform " + numRequests + 
-                " with CachedFactoriser is: " + time + "ms.");
+                " requests with CachedFactoriser is: " + time + "ms.");
     }
     
     private static long factorise(PrimeFactoriser factoriser, int num)
@@ -54,11 +57,15 @@ class Example
         {
             Long[] target = factoriser.factorise(TARGET_NUMBER_BASE + 
                     (long)(Math.random() * TARGET_NUMBER_RANGE));
-            
-            System.out.println(Arrays.toString(target));
+
+            // Some basic feedback.
+            System.out.print('.');
         }
         
         long end = System.currentTimeMillis();
+        
+        System.out.println();
+        System.out.flush();
         
         return end - start;
     }
