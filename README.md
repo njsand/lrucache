@@ -14,4 +14,7 @@ can be any object type.
 
 There is also currently some cache hit/miss counters that can be inspected.
 
+An example of using the cache to store the results of a lengthy computation is also included in the
+`example` package.
+
 
