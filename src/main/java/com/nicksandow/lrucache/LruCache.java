@@ -44,17 +44,46 @@ public class LruCache<K, V>
         lruListTail = null;
         stats = new Stats();
     }
-    
+
     /**
-     * Add the {@code key}/{@code value} pair to the cache.
-     * 
-     * The difference between this and {@link #write} is that this method
-     * never records a cache miss.  If the key is not present, it is added
-     * in exactly the same manner as the {@link #write} method, but no cache 
-     * miss will be recorded.
+     * Add the key/value pair to the cache.
+     * <p>
+     * If the current size of the cache is larger than capacity, the least
+     * recently used pair will be evicted (After a key/value pair is evicted,
+     * any {@link #read} with that key will return null).
+     * <p>
+     * A key/value pair is considered "used" in this sense if it is {@link
+     * #read} from the cache or added by either the {@link #install} or {@link
+     * #write} methods.
      * 
      * @param key
      * @param value 
+     */
+    public void write(K key, V value)
+    {
+        boolean wasPresent = install(key, value);
+        
+        if (wasPresent)
+        {
+            stats.incHits();
+        }
+        else
+        {
+            stats.incMisses();
+        }
+    }
+    
+    /**
+     * Add the key/value pair to the cache but do no hit/miss stats.
+     * 
+     * This does exactly the same thing as {@link #write}, except that it has no
+     * effect on the cache stats.  The point of this is that after a failed read
+     * (which {@emph does} affect the miss rate) you can call this method to place the
+     * key/value into the cache.  We don't want to record a second, spurious
+     * cache miss in this case - hence the reason for this method.
+     * 
+     * @param key The key to add to the cache.
+     * @param value The value to add to the cache.
      */
     public boolean install(K key, V value)
     {
@@ -88,32 +117,13 @@ public class LruCache<K, V>
             return false;
         }
     }
-
-    /**
-     * The difference between this and {@link #write} is that 
-     * @param key
-     * @param value 
-     */
-    public void write(K key, V value)
-    {
-        boolean wasPresent = install(key, value);
-        
-        if (wasPresent)
-        {
-            stats.incHits();
-        }
-        else
-        {
-            stats.incMisses();
-        }
-    }
     
     /**
-     * Lookup the entry corresponding to {@code key}.
+     * Lookup the value corresponding to {@code key}.
      * 
      * @param key
-     * @return The instance of {@code K} corresponding to {@code key}, otherwise
-     * null.
+     * @return The value corresponding to {@code key}, or {@code null} if it is
+     * not present.
      */
     public V read(K key)
     {
@@ -136,6 +146,25 @@ public class LruCache<K, V>
         }
     }
 
+    /**
+     * @return the number of entries in the cache.  This will be an integer in
+     * the range [0, capacity], where capacity was fixed at the construction of
+     * this cache.
+     */
+    public int getCurrentSize()
+    {
+        return currentSize;
+    }
+
+    /**
+     * @return A new instance of {@code Stats} that contains cache statistics
+     * such as hit/miss information.
+     */
+    public Stats getStats()
+    {
+        return new Stats(stats);
+    }
+    
     /**
      * This puts the parameter {@code entry} at the head of the LRU list.
      * 
@@ -218,25 +247,6 @@ public class LruCache<K, V>
         entry.value = value;
 
         nameToValueMap.put(name, entry);
-    }
-    
-    /**
-     * @return the number of entries in the cache.  This will be an integer
-     * in the range [0, capacity], where the capacity is fixed at the 
-     * construction of this cache.
-     */
-    public int getCurrentSize()
-    {
-        return currentSize;
-    }
-
-    /**
-     * @return A new instance of {@code Stats} that contains cache statistics
-     * such as hit/miss information.
-     */
-    public Stats getStats()
-    {
-        return new Stats(stats);
     }
     
     /**
